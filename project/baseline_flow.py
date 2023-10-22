@@ -61,22 +61,23 @@ class BaselineNLPFlow(FlowSpec):
         "Compute the baseline"
 
         ### TODO: Fit and score a baseline model on the data, log the acc and rocauc as artifacts.
-        # from sklearn.feature_extraction.text import CountVectorizer
-        # vectorizer = CountVectorizer()
-        # vectorizer.fit(reviews)
-        X_train = self.traindf['review']
-        X_test  = self.valdf['review']
-        y_train = self.traindf['label']
-        y_test = self.valdf['label']
+        from sklearn.feature_extraction.text import CountVectorizer
         from sklearn.linear_model import LogisticRegression
         from sklearn.metrics import roc_auc_score
 
-        classifier = LogisticRegression(max_iter=1000,random_state=0)
+        vectorizer = CountVectorizer()
+        vectorizer.fit(self.traindf['review'])
+        X_train = vectorizer.transform(self.traindf['review'])
+        X_test  = vectorizer.transform(self.valdf['review'])
+        y_train = self.traindf['label']
+        y_test = self.valdf['label']
+
+        classifier = LogisticRegression(max_iter=1000)
         classifier.fit(X_train, y_train)
-        score = classifier.score(X_test, y_test)
-        print(score)
-        self.base_acc = score
-        # self.base_rocauc = roc_auc_score(y, classifier.predict_proba(X_train)[:, 1])
+        
+        self.base_acc = classifier.score(X_test, y_test)
+        self.base_rocauc = roc_auc_score(y_test, classifier.predict(X_test))
+        print(self.base_acc,self.base_rocauc)
         self.next(self.end)
 
     @card(
