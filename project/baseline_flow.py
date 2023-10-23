@@ -63,7 +63,7 @@ class BaselineNLPFlow(FlowSpec):
         ### TODO: Fit and score a baseline model on the data, log the acc and rocauc as artifacts.
         from sklearn.feature_extraction.text import CountVectorizer
         from sklearn.linear_model import LogisticRegression
-        from sklearn.metrics import roc_auc_score
+        from sklearn.metrics import roc_auc_score, accuracy_score
 
         vectorizer = CountVectorizer()
         vectorizer.fit(self.traindf['review'])
@@ -74,10 +74,11 @@ class BaselineNLPFlow(FlowSpec):
 
         classifier = LogisticRegression(max_iter=1000)
         classifier.fit(X_train, y_train)
-        
-        self.base_acc = classifier.score(X_test, y_test)
-        self.base_rocauc = roc_auc_score(y_test, classifier.predict(X_test))
-        print(self.base_acc,self.base_rocauc)
+        self.predicted = classifier.predict(X_test).tolist()
+        self.y_test = y_test.tolist()
+        self.base_acc = accuracy_score(self.predicted,self.y_test)
+        self.base_rocauc = roc_auc_score(self.y_test, self.predicted)
+
         self.next(self.end)
 
     @card(
@@ -94,13 +95,44 @@ class BaselineNLPFlow(FlowSpec):
 
         current.card.append(Markdown("## Examples of False Positives"))
         # TODO: compute the false positive predictions where the baseline is 1 and the valdf label is 0.
+        FP,FN = 0,0
+        FP_idxs, FN_idxs = [],[]
+        self.valdf['predicted'] = self.predicted
+        for i in range(len(self.predicted)): 
+            if self.predicted[i]==1 and self.y_test[i]!=self.predicted[i]:
+                FP += 1
+                FP_idxs.append(i)
+            if self.predicted[i]==0 and self.y_test[i]!=self.predicted[i]:
+                FN += 1
+                FN_idxs.append(i)
+        print(FP)
         # TODO: display the false_positives dataframe using metaflow.cards
         # Documentation: https://docs.metaflow.org/api/cards#table
-
+        from metaflow.cards import Table
+        import pandas as pd
+        import numpy as np
+        FP_df = self.valdf.iloc[FP_idxs]
+        # FP_df = FP_df.drop(['label'], axis=1)
+        blankIndex=[''] * len(FP_df)
+        FP_df.index=blankIndex
+        current.card.append(
+            Table.from_dataframe(
+                FP_df
+            )
+        )
         current.card.append(Markdown("## Examples of False Negatives"))
         # TODO: compute the false positive predictions where the baseline is 0 and the valdf label is 1.
+        print(FN)
         # TODO: display the false_negatives dataframe using metaflow.cards
-
+        FN_df = self.valdf.iloc[FN_idxs]
+        # FN_df = FN_df.drop(['label'], axis=1)
+        blankIndex=[''] * len(FN_df)
+        FN_df.index=blankIndex
+        current.card.append(
+            Table.from_dataframe(
+                FN_df
+            )
+        )
 
 if __name__ == "__main__":
     BaselineNLPFlow()
